@@ -1,0 +1,84 @@
+1. Game Loops
+Micro (Combat): Spot marker → close distance → position broadside → select ammo → fire → board/sink.
+Meso (Voyage): Leave port → consume supplies per leg → return to port before running out of hull/crew/supplies.
+Meta (Progression): Sell loot → repair → recruit → upgrade → buy new ship.
+2. Controls & Camera
+Camera: Locked to player. Math: cam += (ship - cam) * 0.1
+W / S: Forward thrust / Brake (reverse at reduced power).
+A / D: Turn left / Turn right.
+Left Click: Fire broadside.
+Aim Logic: If mouse X/Y is left of the ship's forward vector, fire Port. If right, fire Starboard.
+1 / 2 / 3: Select ammo type.
+Space: Attempt boarding.
+3. Ship Physics
+Formulas (Fixed Timestep):
+code
+JavaScript
+speed += thrust * dt;
+speed -= linearDrag * dt;
+speed = clamp(speed, -maxReverse, maxSpeed);
+
+turnSpeed += turnInput * angularAccel * dt;
+turnSpeed -= turnSpeed * angularDrag * dt;
+turnSpeed = clamp(turnSpeed, -maxTurnSpeed, maxTurnSpeed);
+
+speed -= Math.abs(turnSpeed) * turnSpeedBleed * dt; // Turning slows ship
+heading += turnSpeed * dt;
+Damage/Load Multipliers: Max Speed and Max Turn Speed scale down based on Sail HP%, Hull HP%, Crew shortage, and Cargo load.
+4. Ship Classes
+Sloop: Very Fast, High Turn, Low HP, 2-3 cannons/side, 6-10 crew.
+Brigantine: Fast, Good Turn, Med HP, 4-6 cannons/side, 10-15 crew.
+Brig: Medium Speed, Med Turn, Med+ HP, 6-8 cannons/side, 16-22 crew.
+Frigate: Med-Slow, Slow Turn, High HP, 10-12 cannons/side, 28-32 crew.
+Galleon: Slow, Very Slow Turn, Very High HP, 12-18 cannons/side, 30-40 crew.
+5. Combat & Ammo
+Volleys: Spawn from ship center in a cone (no individual cannon sockets). Consumes 1 Powder per click. Reloads per side.
+Ammo Types:
+Round Shot: Long range, tight spread. (High Hull DMG).
+Chain Shot: Medium range, medium spread. (High Sail DMG).
+Grape Shot: Short range, wide spread. (High Crew DMG).
+Collision: Strict Circle-vs-Circle. Ship collision radius = ~65% of visual length.
+6. Crew & Morale (Rum)
+Stats: crewCount (Int) and crewQuality (Float 1.0 to 3.0).
+Power Base: Efficiency = crewCount * crewQuality.
+Manning Penalty: If crewCount < minCrew for the ship, apply severe reload/turn penalties.
+Morale States:
+Well Supplied: 100% efficiency.
+Rationed: 85% efficiency.
+Dry: 65% efficiency.
+Dry + No Food: 50% efficiency, boarding disabled.
+7. Resources & The "Leg" System
+Resources: Gold, Food, Rum, Powder, Cargo (Int max capacity).
+Drain Mechanic (No per-second drain): Food and Rum are consumed instantly every time the Encounter Director spawns a new marker (a "Leg").
+Cost per Leg: Food = crewCount, Rum = ceil(crewCount / 3).
+8. Encounter Director & World
+World: Infinite X/Y Canvas space. No procedural map.
+Director: Hidden timer (10–22s). On tick, spawns a visual "Marker" far off-screen.
+Resolution: When the player ship gets within X distance of the Marker, destroy Marker and instantiate Enemy Ship entity.
+9. AI
+Navigation: AI keeps an invisible "Orbit Point" that circles the player at a preferred distance. AI ship just uses basic thrust/turn to drive toward that point.
+Types:
+Merchant: Drives directly away from player.
+Pirate: Uses Orbit Point to circle and broadside.
+Navy: Aggressive pursuit, orbits closer.
+10. Boarding
+Trigger: Close proximity + slow relative speed + hit Spacebar.
+Resolution: Instant math check (Player Boarding Power vs Enemy Boarding Power + RNG).
+Victory Options:
+Salvage: Take Gold/Cargo, sink enemy.
+Take Ship: Instant transfer. Swap player to new hull, auto-transfer surviving crew/supplies, abandon old ship.
+11. Bounty (0-100)
+Increases by: Attacking merchants, sinking navy.
+Effects: Higher navy spawn rates, earlier merchant fleeing.
+Decreases by: Paying gold at the Cove.
+12. The Cove (Meta Hub)
+UI: Strict DOM/HTML menus overlaying the canvas.
+Tavern: Hire Crew, Pay off Bounty.
+Shipwright: Repair Hull/Sails (Gold), Buy/Sell Ships, Upgrades.
+Merchant: Buy Food/Rum/Powder, Sell Cargo.
+Upgrades (3 Tiers): Hull (HP), Sails (Speed/Turn), Artillery (Reload/Spread), Magazine (Powder Cap), Quarters (Crew Cap).
+13. Technical Architecture
+Vanilla HTML5 Canvas 2D.
+Fixed-timestep requestAnimationFrame loop (Accumulator pattern).
+Save state is a simple JSON object of the player's stats/ship.
+Object pooling for projectiles and particles.
