@@ -1,0 +1,69 @@
+
+To build this game efficiently while keeping the code clean and scalable, we should use a Modular Object-Oriented approach. Since the GDD explicitly states the entity count is low (1 player, 1–3 enemies, a few projectiles) and we don’t need a procedural world map, we don't need a heavy ECS (Entity-Component-System) or a physics engine like Matter.js. Pure HTML5 Canvas and simple classes will be perfect.
+Here is the initial, simple architecture to get us started. We will build this in phases.
+1. High-Level Folder Structure
+We will separate the game into logical modules.
+code
+Text
+src/
+├── main.js               # Entry point, initializes canvas and Game object
+├── core/                 # Engine fundamentals
+│   ├── GameLoop.js       # Fixed-timestep accumulator loop
+│   ├── Input.js          # Keyboard (WASD/123/Space) & Mouse position
+│   ├── Camera.js         # Follows player, handles coordinate translation
+│   └── Renderer.js       # Canvas drawing helpers
+├── states/               # High-level game states (The Meta/Meso Loops)
+│   ├── StateManager.js   # Switches between states
+│   ├── CoveState.js      # Hub UI menus (Repairs, upgrades, DOM-based)
+│   └── VoyageState.js    # Active sea gameplay (Canvas-based)
+├── entities/             # The Micro Loop (In-game objects)
+│   ├── Entity.js         # Base class (x, y, radius, update, draw)
+│   ├── Ship.js           # Base ship logic (physics, turning, HP)
+│   ├── PlayerShip.js     # Extends Ship, listens to Input.js
+│   ├── EnemyShip.js      # Extends Ship, uses the "Orbit" AI logic
+│   ├── Projectile.js     # Cannonballs (Object pooled)
+│   └── Marker.js         # Distant encounter markers
+├── systems/              # Game logic managers
+│   ├── EncounterDir.js   # Spawns markers on a timer
+│   └── Collision.js      # Circle-vs-circle math
+└── data/                 # Configs and save state
+    ├── Constants.js      # Ship classes, ammo types, base speeds
+    └── PlayerData.js     # Persistent state (Gold, Crew, Hull HP, Resources)
+2. Core Architectural Pillars
+A. The Game Loop (Fixed Timestep)
+To ensure the ship physics behave identically on all monitors (60Hz vs 144Hz), we will use an accumulator pattern.
+update(dt): Runs at a fixed rate (e.g., 60 FPS / 16.6ms). Handles physics, AI, timers, and input resolution.
+draw(interpolation): Runs as fast as requestAnimationFrame allows. Draws the current state.
+B. The Camera & Coordinate System
+There is no actual "world map". The ocean is mathematically infinite.
+The PlayerShip moves through coordinate space (X, Y).
+The Camera simply updates its position to player.x, player.y (with slight lerping).
+During the draw phase, the Canvas context is translated by -camera.x, -camera.y so the player stays in the center and the world scrolls around them.
+C. Separation of State (DOM vs Canvas)
+The Cove (Meta Loop): This doesn't need to be drawn on the Canvas. It's much easier to build the Hub, Tavern, and Shipwright using standard HTML/CSS overlays on top of the Canvas. CoveState will manage DOM visibility.
+The Voyage (Meso/Micro Loop): Hides the DOM UI, starts the game loop, and renders the entities onto the Canvas.
+D. The "Voyage" Data Flow (How an encounter happens)
+EncounterDirector runs a hidden timer.
+Timer hits -> creates a Marker entity far away from the player.
+Player steers toward the Marker.
+If distance to Marker < threshold -> Destroy Marker, instance an EnemyShip, deduct 1 "Leg" worth of Food/Rum.
+3. Proposed Iteration Plan (How we build it)
+To avoid getting overwhelmed, I suggest we build the game step-by-step, verifying each piece works before adding depth:
+Phase 1: The Sailing Prototype (Foundation)
+Set up Canvas, Game Loop, Input, and Camera.
+Implement the PlayerShip with the GDD's specific physics (angular acceleration, speed bleeding on turns).
+Goal: We have a ship that feels heavy and nautical to drive around an empty grid.
+Phase 2: The Combat Prototype (Micro Loop)
+Add Projectile pooling and mouse aiming (Port vs Starboard calculation).
+Add an inactive dummy EnemyShip.
+Implement Circle-vs-Circle collision and basic HP reduction.
+Goal: We can sail, line up a broadside, and sink a target.
+Phase 3: The Ocean Prototype (Meso Loop)
+Implement EncounterDirector to spawn Markers.
+Implement the "Orbiting" AI for the enemy ship.
+Implement resource draining (Food/Rum) when a marker is reached.
+Goal: The core gameplay loop of hunting is playable.
+Phase 4: The Cove & Progression (Meta Loop)
+Build the DOM-based Hub.
+Implement Gold, upgrading, ship repairing, and saving/loading data.
+Goal: A fully playable loop from port, to sea, and back.
